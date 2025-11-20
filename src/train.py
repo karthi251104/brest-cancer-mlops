@@ -1,60 +1,91 @@
 import os
-os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-
+import datetime
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dense, Dropout
-import matplotlib.pyplot as plt
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 
-IMG_SIZE = 128
-BATCH_SIZE = 16
-EPOCHS = 10
+# ====================== PATHS ======================
 
-TRAIN_DIR =  r"C:\Users\karthikarthika\Downloads\archive (2)\train"
+
+TRAIN_DIR = r"C:\Users\karthikarthika\Downloads\archive (2)\train"
 VAL_DIR = r"C:\Users\karthikarthika\Downloads\archive (2)\valid"
 
-# Data Generators
-train_gen = ImageDataGenerator(rescale=1./255).flow_from_directory(
+# ====================== DATA GENERATORS ======================
+IMG_SIZE = (128, 128)
+BATCH_SIZE = 32
+
+train_datagen = ImageDataGenerator(
+    rescale=1.0/255,
+    rotation_range=20,
+    zoom_range=0.2,
+    horizontal_flip=True
+)
+
+val_datagen = ImageDataGenerator(rescale=1.0/255)
+
+train_gen = train_datagen.flow_from_directory(
     TRAIN_DIR,
-    target_size=(IMG_SIZE, IMG_SIZE),
+    target_size=IMG_SIZE,
     batch_size=BATCH_SIZE,
-    class_mode='binary'
+    class_mode="binary"
 )
 
-val_gen = ImageDataGenerator(rescale=1./255).flow_from_directory(
+val_gen = val_datagen.flow_from_directory(
     VAL_DIR,
-    target_size=(IMG_SIZE, IMG_SIZE),
+    target_size=IMG_SIZE,
     batch_size=BATCH_SIZE,
-    class_mode='binary'
+    class_mode="binary"
 )
 
-# CNN Model
+# ====================== BUILD MODEL ======================
 model = Sequential([
-    Conv2D(32, (3,3), activation='relu', input_shape=(IMG_SIZE, IMG_SIZE, 3)),
-    MaxPooling2D(),
+    Conv2D(32, (3, 3), activation='relu', input_shape=(128, 128, 3)),
+    MaxPooling2D(2, 2),
 
-    Conv2D(64, (3,3), activation='relu'),
-    MaxPooling2D(),
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D(2, 2),
 
-    Conv2D(128, (3,3), activation='relu'),
-    MaxPooling2D(),
+    Conv2D(128, (3, 3), activation='relu'),
+    MaxPooling2D(2, 2),
 
-    GlobalAveragePooling2D(),
-    Dense(64, activation='relu'),
-    Dropout(0.4),
+    Flatten(),
+    Dense(128, activation='relu'),
+    Dropout(0.5),
     Dense(1, activation='sigmoid')
 ])
 
-model.compile(optimizer='adam',
-              loss='binary_crossentropy',
-              metrics=['accuracy'])
+model.compile(
+    optimizer="adam",
+    loss="binary_crossentropy",
+    metrics=["accuracy"]
+)
 
-model.summary()
+# ====================== TRAIN ======================
+history = model.fit(
+    train_gen,
+    epochs=5,
+    validation_data=val_gen
+)
 
-history = model.fit(train_gen, validation_data=val_gen, epochs=EPOCHS)
+# ====================== MODEL REGISTRY ======================
+# Create models_registry folder if missing
+os.makedirs("models_registry", exist_ok=True)
 
-# Save Model
-os.makedirs("models", exist_ok=True)
-model.save("models/cnn_breast_cancer.h5")
-print("Model saved at models/cnn_breast_cancer.h5")
+# Timestamp for versioning
+timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+# Versioned model path
+version_path = f"models_registry/model_{timestamp}.keras"
+
+# Latest model path
+latest_path = "models_registry/latest_model.keras"
+
+# Save models
+model.save(version_path)
+model.save(latest_path)
+
+print("\n==================== MODEL SAVED ====================")
+print(f"Versioned model saved to: {version_path}")
+print(f"Latest model saved to: {latest_path}")
+print("=====================================================\n")
