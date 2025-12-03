@@ -24,7 +24,7 @@ def home():
 # ========================
 # LOAD MODEL
 # ========================
-MODEL_PATH = "models_registry/latest_model.keras"
+MODEL_PATH = "models_registry/latest_model.h5"
 
 model = None
 
